@@ -1,23 +1,8 @@
-﻿// 09_15.cpp : 애플리케이션에 대한 진입점을 정의합니다.
+﻿// 09_22.cpp : 애플리케이션에 대한 진입점을 정의합니다.
 //
 
 #include "framework.h"
-#include "09_15.h"
-
-// STL의 vector를 사용하기 위한 선언
-using namespace std;
-#include <vector>
-
-// 마우스 좌표를 저장할 구조체
-typedef struct mousePosition
-{
-    int x;
-    int y;
-} MP, *PMP;
-
-// 동적으로 정보 보관을 위한 vector를 선언
-vector<PMP> g_ptr;
-
+#include "09_22.h"
 
 #define MAX_LOADSTRING 100
 
@@ -44,7 +29,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
 
     // 전역 문자열을 초기화합니다.
     LoadStringW(hInstance, IDS_APP_TITLE, szTitle, MAX_LOADSTRING);
-    LoadStringW(hInstance, IDC_MY0915, szWindowClass, MAX_LOADSTRING);
+    LoadStringW(hInstance, IDC_MY0922, szWindowClass, MAX_LOADSTRING);
     MyRegisterClass(hInstance);
 
     // 애플리케이션 초기화를 수행합니다:
@@ -53,7 +38,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
         return FALSE;
     }
 
-    HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_MY0915));
+    HACCEL hAccelTable = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_MY0922));
 
     MSG msg;
 
@@ -88,10 +73,10 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     wcex.cbClsExtra     = 0;
     wcex.cbWndExtra     = 0;
     wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MY0915));
+    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_MY0922));
     wcex.hCursor        = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_MY0915);
+    wcex.lpszMenuName   = MAKEINTRESOURCEW(IDC_MY0922);
     wcex.lpszClassName  = szWindowClass;
     wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_SMALL));
 
@@ -137,20 +122,15 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 //
 
-/// 전역 변수는 초기화하지 않아도 항상 [ 0 ] 으로 초기화 된다.
-int g_x, g_y;
-/// RECT 자료형 선언
-RECT g_rect;        // left, top, right, bottom은 모두 0으로 초기화된 상태
+// 제어할 사각형 선언
+RECT g_rect;
+// 상대방의 사각형 선언
+RECT g_you;
+// 타이머 시간 값 제어 변수
+int g_timer;
 
-// 마우스가 눌린 상태인지 확인을 위한 플래그 변수
-bool g_press;       // true(눌린 상태), false(눌리지 않은 상태)
-
-// 콜백 함수(*) --> 호출 시에만 데이터가 존재하고, 종료 시 모두 데이터 삭제
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    // 함수 안에서 선언된 모든 변수 값은 함수 종료 시 남아있지 않다!
-    int x = 223, y = 878;
-
     switch (message)
     {
     case WM_COMMAND:
@@ -171,136 +151,125 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
 
-    // 오른쪽 마우스 버튼을 눌렀을 때 발생하는 메시지
-    case WM_RBUTTONDOWN:
+    case WM_TIMER:
+       // MessageBox(hWnd, L"타이머가 도착했어요", L"심재호", MB_OK);
+        if (1 == wParam)
+        {
+            // 타이머 값 감소
+            if (100 <= g_timer)
+                g_timer -= 50;
+            // 타이머 재설정
+            KillTimer(hWnd, 1);
+            SetTimer(hWnd, 1, g_timer, NULL);
+
+            if (g_rect.left < g_you.left)
+            {
+                g_you.left -= 10;
+                g_you.right -= 10;
+            }
+            else
+            {
+                g_you.left += 10;
+                g_you.right += 10;
+            }
+            if (g_rect.top < g_you.top)
+            {
+                g_you.top -= 10;
+                g_you.bottom -= 10;
+            }
+            else
+            {
+                g_you.top += 10;
+                g_you.bottom += 10;
+            }
+            /////////////// 상대의 좌표 계산 및 이동 완료
+
+            // 겹침이 발생한 경우의 겸침 영역 좌표를 받아올 변수
+            RECT isr;
+
+            if (true == IntersectRect(&isr, &g_rect, &g_you))
+            {
+                // 타이머를 해제
+                KillTimer(hWnd, 1);
+                // 나는 현재 잡힌 상태
+                MessageBox(hWnd, L"아이쿠", L"자펴쏘", MB_OK);
+            }
+        }
+        else if (2 == wParam)
+        {
+
+        }
+        InvalidateRect(hWnd, NULL, true);
+        break;
+    // 프로그램이 실행될때, 단 한번 OS가 호출해주는 생성자와 같은 윈도우 메시지
+    case WM_CREATE:
     {
-        // 화면 무효화 영역을 지정하기 위한 자료형 선언
-        RECT area;
+        // 타이머 기본 값 설정
+        g_timer = 1000;
 
-        // 사각형 영역 설정
-        area.left = 50;
-        area.top = 50;
-        area.right = 600;
-        area.bottom = 600;
+        // 타이머 설정 - 상대방의 이동
+        SetTimer(hWnd, 1, g_timer, NULL);
+        // 시간을 재기 위한 타이머
+        SetTimer(hWnd, 2, 1000, NULL);
 
-        // OS에게 WM_PAINT를 요청하는 API
-        //InvalidateRect(hWnd, NULL, TRUE);
-        InvalidateRect(hWnd, &area, TRUE);
+        // 나의 사각형의 기본 좌표를 설정
+        g_rect.left = 10;
+        g_rect.top = 10;
+        g_rect.right = 110;
+        g_rect.bottom = 110;
+
+        // 상대방 사각형의 기본 좌표를 설정
+        g_you.left = 300;
+        g_you.top = 300;
+        g_you.right = 400;
+        g_you.bottom = 400;
     }
         break;
 
-    case WM_LBUTTONUP:
+    // 키보드 입력
+    case WM_KEYDOWN:
     {
-        // 왼쪽 버튼이 눌리지 않았음을 설정
-        g_press = false;
-    }
-        break;
-
-    case WM_LBUTTONDOWN:
-    {
-        // 구조체 동적 메모리 할당
-        PMP ptr = new MP;
-        // 왼쪽 버튼이 눌렸음을 설정
-        g_press = true;
-
-        g_x = LOWORD(lParam);
-        g_y = HIWORD(lParam);
-
-        // 구조체에 현재 마우스 좌표 입력
-        ptr->x = g_x;
-        ptr->y = g_y;
-
-        // vector에 저장
-        g_ptr.push_back(ptr);
-
-    }
-        break;
-
-    // 마우스가 이동했을 때 발생하는 메시지
-    case WM_MOUSEMOVE:
-        //break;
-
-    // 왼쪽 마우스 버튼을 뗐을 때 발생하는 메시지
-    //case WM_LBUTTONUP:
-        //break;
-
-    // 왼쪽 마우스 버튼을 눌렀을때 발생하는 메세지
-    //case WM_LBUTTONDOWN:
-    {
-        if (false == g_press)
+        // 키 값에 따라 처리를 수행
+        switch (wParam)
+        {
+        // 왼쪽 방향키 입력
+        case VK_LEFT:
+            g_rect.left -= 10;
+            g_rect.right -= 10;
             break;
+        // 오른쪽 방향키 입력
+        case VK_RIGHT:
+            g_rect.left += 10;
+            g_rect.right += 10;
+            break;
+        // 위쪽 방향키 입력
+        case VK_UP:
+            g_rect.top -= 10;
+            g_rect.bottom -= 10;
+            break;
+        // 아래쪽 방향키 입력
+        case VK_DOWN:
+            g_rect.top += 10;
+            g_rect.bottom += 10;
+            break;
+        }
 
-        // 마우스 좌표 값 저장을 위한 동적 메모리 할당
-        PMP ptr = new MP;
-        HDC hdc;
-        x = LOWORD(lParam);
-        y = HIWORD(lParam);
-        g_rect.right = x;
-        g_rect.bottom = y;
-
-        // 동적 메모리에 x,y 좌표 값 입력
-        ptr->x = x;
-        ptr->y = y;
-        // vector에 구조를 저장
-        g_ptr.push_back(ptr);
-
-        hdc = GetDC(hWnd);
-
-        //Rectangle(hdc, 10, 10, g_x, g_y);
-        //Ellipse(hdc, 10, 10, g_x, g_y);
-        MoveToEx(hdc, g_x, g_y, NULL);
-        LineTo(hdc, x, y);
-
-        //MoveToEx(hdc, x, 10, NULL);
-        //LineTo(hdc, 10, y);
-
-        ReleaseDC(hWnd, hdc);
-
-        g_x = x;
-        g_y = y;
-        
+        // 변경된 좌표 값이 적용된 그림을 그리도록 화면 무효화를 요청
+        InvalidateRect(hWnd, NULL, true);
     }
         break;
 
-    // ***** 화면 무효화가 발생했을때, OS가 다시 그리라고 보내주는 윈도우 메세지
-    // 무효화가 발생하는 조건
-    // 1. 화면 밖으로 윈도우가 이동한 경우
-    // 2. 창 크기 변경
-    // 3. 창 최소화
-    // 4. 창 최대화
-    // 5. 프로그램이 시작 되자마자 반드시 한번 호출해준다.
-    // 6. 프로그래머가 직접 무효화 처리 메시지를 발생시킨다
     case WM_PAINT:
         {
-            // vector 순회를 위해 필요한 자료구조 선언
-            int i = 0;
-            PMP ptr = NULL;
-
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hWnd, &ps);
             // TODO: 여기에 hdc를 사용하는 그리기 코드를 추가합니다...
 
-            // RECT 자료형을 이용한 그리기
-            //Rectangle(hdc, 10, 10, g_rect.right, g_rect.bottom);
-            //Ellipse(hdc, 10, 10, g_rect.right, g_rect.bottom);
+            // 나의 사각형 그린다.
+            Rectangle(hdc, g_rect.left, g_rect.top, g_rect.right, g_rect.bottom);
 
-            if (0 != g_ptr.size())
-            {
-                for (i = 0; i < g_ptr.size() - 1; i++)
-                {
-                    MoveToEx(hdc, g_ptr[i]->x, g_ptr[i]->y, NULL);
-                    LineTo(hdc, g_ptr[i + 1]->x, g_ptr[i + 1]->y);
-                }
-            }
-
-            /*
-            // g_x, g_y를 이용한 그리기
-            Rectangle(hdc, 10, 10, g_x, g_y);
-            Ellipse(hdc, 10, 10, g_x, g_y);
-
-            MoveToEx(hdc, 0, 0, NULL);
-            LineTo(hdc, g_x, g_y);
-            */            
+            // 상대방 사각형 그린다.
+            Rectangle(hdc, g_you.left, g_you.top, g_you.right, g_you.bottom);
 
             EndPaint(hWnd, &ps);
         }
