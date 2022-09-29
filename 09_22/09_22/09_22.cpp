@@ -4,6 +4,9 @@
 #include "framework.h"
 #include "09_22.h"
 
+#include <stdlib.h> // 랜덤 함수 사용
+#include <time.h>   // 시간 값 획득 : 랜덤 시드 값 생성용
+
 #define MAX_LOADSTRING 100
 
 // 전역 변수:
@@ -126,6 +129,16 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 RECT g_rect;
 // 상대방의 사각형 선언
 RECT g_you;
+// 그라운드
+RECT g_ground;
+// 아이템
+RECT g_item;
+// 시간 표시용 사각형
+RECT g_timerect;
+
+// 게임 시간
+int g_gametime;
+
 // 타이머 시간 값 제어 변수
 int g_timer;
 
@@ -197,15 +210,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         else if (2 == wParam)
         {
+            g_gametime--;
+            // 시간에 따라 시간 표시 사각형의 크기 조절
+            g_timerect.right = 10 + ( g_gametime * 10 );
 
+            if (0 == g_gametime)
+            {
+                MessageBox(hWnd, L"게임 오버", L"go", MB_OK);
+                // 타이머 해제
+                KillTimer(hWnd, 1);
+                KillTimer(hWnd, 2);
+            }
         }
         InvalidateRect(hWnd, NULL, true);
         break;
     // 프로그램이 실행될때, 단 한번 OS가 호출해주는 생성자와 같은 윈도우 메시지
     case WM_CREATE:
     {
+        // 시드 값을 생성
+        srand(time(NULL));
         // 타이머 기본 값 설정
         g_timer = 1000;
+
+        // 게임 시간 설정
+        g_gametime = 100;
 
         // 타이머 설정 - 상대방의 이동
         SetTimer(hWnd, 1, g_timer, NULL);
@@ -223,6 +251,56 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         g_you.top = 300;
         g_you.right = 400;
         g_you.bottom = 400;
+
+        // 그라운드 좌표
+        g_ground.left = 10;
+        g_ground.top = 10;
+        g_ground.right = 500;
+        g_ground.bottom = 500;
+
+        // 아이템의 좌표 설정
+        g_item.left = (rand() % 350) + 10;
+        g_item.top = (rand() % 350) + 10;
+        g_item.right = g_item.left + 100;
+        g_item.bottom = g_item.top + 100;
+
+        // 시간 표시 사각형
+        g_timerect.left = 10;
+        g_timerect.top = 520;
+        g_timerect.right = 110;
+        g_timerect.bottom = 560;
+
+    }
+        break;
+
+    case WM_LBUTTONDOWN:
+    {
+        RECT is, pos;
+
+        pos.left = LOWORD(lParam);
+        pos.top = HIWORD(lParam);
+        pos.right = pos.left + 1;
+        pos.bottom = pos.top + 1;
+
+        if (true == IntersectRect(&is, &g_rect, &pos))
+        {
+            //MessageBox(hWnd, L"잡혔다", L"Yes", MB_OK);
+        }
+
+    }
+        break;
+
+    case WM_LBUTTONUP:
+    {
+        int x, y;
+
+        x = LOWORD(lParam);
+        y = HIWORD(lParam);
+
+        g_rect.left = x;
+        g_rect.top = y;
+        g_rect.right = g_rect.left + 100;
+        g_rect.bottom = g_rect.top + 100;
     }
         break;
 
@@ -254,6 +332,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             break;
         }
 
+        // 그라운드 범위 확인 및 좌표 재설정
+        if (g_rect.left < 10)
+        {
+            g_rect.left = 10;
+            g_rect.right = 110;
+        }
+        if (g_rect.top < 10)
+        {
+            g_rect.top = 10;
+            g_rect.bottom = 110;
+        }
+        if (g_rect.right > 500)
+        {
+            g_rect.right = 500;
+            g_rect.left = 400;
+        }
+        if (g_rect.bottom > 500)
+        {
+            g_rect.bottom = 500;
+            g_rect.top = 400;
+        }
+
+        // 아이템을 먹었는가? 확인
+        RECT is;
+
+        if (true == IntersectRect(&is, &g_rect, &g_item))
+        {
+            // 아이템을 획득한 상태
+            // 점수 상승 + 시간 상승
+            g_gametime += 3;
+            // 아이템의 위치 이동
+            g_item.left = (rand() % 350) + 10;
+            g_item.top = (rand() % 350) + 10;
+            g_item.right = g_item.left + 100;
+            g_item.bottom = g_item.top + 100;
+        }
+
         // 변경된 좌표 값이 적용된 그림을 그리도록 화면 무효화를 요청
         InvalidateRect(hWnd, NULL, true);
     }
@@ -265,12 +380,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             HDC hdc = BeginPaint(hWnd, &ps);
             // TODO: 여기에 hdc를 사용하는 그리기 코드를 추가합니다...
 
+            // 그라운드 사각형 그린다.
+            Rectangle(hdc, g_ground.left, g_ground.top, g_ground.right, g_ground.bottom);
+
             // 나의 사각형 그린다.
             Rectangle(hdc, g_rect.left, g_rect.top, g_rect.right, g_rect.bottom);
+
+            // 아이템을 그린다.
+            Ellipse(hdc, g_item.left, g_item.top, g_item.right, g_item.bottom);
 
             // 상대방 사각형 그린다.
             Rectangle(hdc, g_you.left, g_you.top, g_you.right, g_you.bottom);
 
+            // 시간 정보 출력
+            Rectangle(hdc, g_timerect.left, g_timerect.top, g_timerect.right, g_timerect.bottom);
             EndPaint(hWnd, &ps);
         }
         break;
